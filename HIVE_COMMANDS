@@ -1,0 +1,168 @@
+HIVE (dfs -ls : to view directory structure)
+
+1) Create Database in Hive.
+2) Use the created Database.
+3) Create table user (data provided in txt file, space sperated, User.txt)
+4) Create table useraddress (data provided in txt file, tab sperated, UserAddress.txt)
+5) Create table userhobby (data provided in txt file, comma sperated, UserHobby.txt)
+6) Create table usermarks (data provided in csv file, xlsx file not supported, UserMarks.csv)
+7) Describe all tables (to check all datatypes);
+8) Load data in all the table from local/hdfs location
+9) Create external table having one date column and load data. (data provided in txt file, space sperated, User.txt)
+10) Create partitioned table same as above having partitioned key. Use date as partitioned key. Table should be stored as sequence file.
+11) Insert data into partitioned table from the external table. Data should go to appropriate partition.
+12) Create Dummy Table and do the following Alter (Rename, Change, Add Column, View, Index)
+13) Joins, GroupBy
+14) Extracting Avro schema from Avro data files using avro-tools
+15) tojson and fromjson using avro
+16) Create a table in the Hive metastore using Avro
+17) Create table using buckets
+
+################################################################################################################################################################
+
+1)	create database in not exists user;
+	
+2)	use user;
+
+3)	create table userdetails(
+     userid int,
+     username string,
+     userpassword string,
+     usergender string,
+     userage int,
+     userdob date)
+     row format delimited
+     fields terminated by ' '
+     stored as textfile;
+	
+4)  create table useraddress(
+     userid int,
+     useraddress string)
+     row format delimited
+     fields terminated by '\t'
+     stored as textfile;
+
+5) 	create table userhobby(
+     userid int,
+     userhobby string)
+     row format delimited
+     fields terminated by ','
+     stored as textfile;
+
+6)	 create table usermarks(
+     userid int,
+     usermarks int)
+     row format delimited
+     fields terminated by ','
+     stored as textfile;
+
+7) Describe user, useraddress, userhobby, usermarks.(describe formatted)
+	
+8)	Local
+		load data local inpath '/home/nikunjpatel1989/Hive/UserDetails.txt' into table userdetails;
+		load data local inpath '/home/nikunjpatel1989/Hive/UserAddress.txt' into table useraddress;
+		load data local inpath '/home/nikunjpatel1989/Hive/UserHobby.txt' into table userhobby;
+		load data local inpath '/home/nikunjpatel1989/Hive/UserMarks.csv' into table usermarks;
+	HDFS
+		load data inpath '/tmp/CCA175/User.txt' into table user;
+		load data inpath '/tmp/CCA175/UserAddress.txt' into table useraddress;
+		load data inpath '/tmp/CCA175/UserHobby.txt' into table userhobby;
+		load data inpath '/tmp/CCA175/UserMarks.csv' into table usermarks;
+
+9) 	create external table user_ext(
+     userid int,
+     username string,
+     userpassword string,
+     usergender string,
+     userage int,
+     userdob string)
+     row format delimited
+     fields terminated by ' '
+     stored as textfile
+     location '/user/nikunjpatel1989/exttablenew';
+	
+	load data local inpath '/home/nikunjpatel1989/Hive/UserDetails.txt' into table user_ext;
+	
+10) create table user_partitioned(
+    > userid int,
+    > username string,
+    > userpassword string,
+    > usergender string,
+	> userage int,
+    > userdob date)
+    > partitioned by(userdobpartkey date)
+    > row format delimited
+    > fields terminated by ','
+    > stored as sequencefile;
+	
+	set hive.exec.dynamic.partition=true
+	set hive.exec.dynamic.partition.mode=nonstrict
+
+11)	insert into user_partitioned partition(userdobpartkey)select userid,username,userpassword,usergender,userage,userdob,userdob from user_ext;
+	--substr(userdob,1,5)
+	
+	show partitions user_partitioned;
+
+12) create table dummy_table(
+    > userid int,
+    > name string,
+    > age int)
+    > row format delimited
+    > stored as textfile;
+	
+	alter table dummy_table rename to dummy; (renaming databases)
+	alter table dummy_table change name username int; (renaming column names and its datatypes)
+	alter table dummy_table add columns(dept string); (for adding column)
+	create view myview as select * from user where userage>30; (view created)
+	create index myindex on table user(userid) as 'org.apache.hadoop.hive.ql.index.compact.CompactIndexHandler' WITH DEFERRED REBUILD;
+
+13) Join
+	select u.userid, u.username, u.userpassword, a.useraddress from user u join useraddress a on (u.userid = a.userid);
+	#Replace join with left,righ,full outer join
+	GroupBy
+	select u.userid, u.username, sum(a.usermarks) from user u, usermarks a where a.userid = u.userid group by u.userid, u.username;
+	
+14) Create database in hive to store all the sql table
+	create database retail_stage1;
+	
+	sqoop import all the table in avro format in hdfs.
+	sqoop import-all-tables \
+	 --connect jdbc:mysql://101.53.130.146/nikunjpatel1989 \
+	 --username nikunjpatel1989 --password HZj4zKduxtwoKNm \
+	 --as-avrodatafile \
+	 -m 1 \
+	 --warehouse-dir /user/hive/warehouse/avro_example.db;
+
+	 avro-tools getmeta part-m-00000.avro (extracts metadata)
+	 avro-tools getschema part-m-00000.avro (extracts json)
+	 
+	 Note : .avsc file is generated in local directory as well.
+	 
+15) ToJson
+	avro-tools tojson part-m-00000.avro  > department.json
+	
+	FromJson
+	avro-tools getschema part-m-00000.avro  > department.avsc
+	avro-tools fromjson department.json --schema-file department.avsc
+	
+16)	CREATE EXTERNAL TABLE avf_avro
+	STORED AS AVRO
+	LOCATION 'hdfs:///user/hive/warehouse/avro_example.db/user'
+	TBLPROPERTIES ('avro.schema.url'='hdfs:///user/nikunjpatel1989/user.avsc');
+
+17) Buckets 
+
+	create table user_buckets(
+	userid int,
+	username string,
+	pass string,
+	gender string,
+	age int,
+	dob string)
+	clustered by (userid) into 16 buckets
+	row format delimited
+	fields terminated by ','
+	stored as textfile;
+	 
+	 
+	

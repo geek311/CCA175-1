@@ -1,0 +1,272 @@
+Note: All commands are available in sqoop help,sqoop import --help
+
+1) List all the database in sql
+
+	sqoop list-databases \
+	--connect "jdbc:mysql://101.53.130.146" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm;
+
+2) List all tables in sql
+
+	sqoop list-tables \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm;
+
+3) Eval (to validate the results)
+
+	sqoop eval \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--query "select * from orders";
+
+4) use import-all command (/user/nikunjpatel1989/sqoop_import)
+	
+	hadoop fs -mkdir /user/nikunjpatel1989/sqoop_import 
+
+	sqoop import-all-tables \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	-m 1  \
+	--warehouse-dir /user/nikunjpatel1989/sqoop_import;
+
+	Note1: if the table dont have primary key, then use only one mapper.
+	Note2: only during import-all, you can use --warehouse-dir
+
+5) import all the sql table to hive
+	
+	Note: default compress techinque is GZip(--compress is onny required)
+	Note: Hive tables are also created in home directory, make sure it dosent exists.
+	
+	a) to default hive directory (/user/hive/warehouse)
+
+	sqoop import-all-tables 
+	-m 1 \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989  \
+	--password HZj4zKduxtwoKNm \
+	--hive-import \
+	--hive-overwrite \
+	--create-hive-table \
+	--compress \
+	--compression-codec org.apache.hadoop.io.compress.SnappyCodec;
+
+	b) to particular database
+
+	sqoop import-all-tables \
+	-m 1 \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--hive-import \
+	--hive-overwrite \
+	--create-hive-table \
+	--compress \
+	--compression-codec org.apache.hadoop.io.compress.SnappyCodec \
+	--hive-database sqoop_import;
+
+6) Import command for single table, single column
+
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--columns order_id \
+	-m 1 \
+	--table orders \
+	--target-dir /user/nikunjpatel1989/sqoop_import;
+
+7) Import command if there is no primary key but still you can use multiple mappers
+
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--split-by order_id \
+	-m 4 \
+	--table orders \
+	--target-dir /user/nikunjpatel1989/sqoop_import;
+	
+8) Import into the hdfs using query (where condition in query is mandatory)
+	
+	Note:--query is mutually exclusive to tables
+	Note:--split-by is mandotory when running sqoop import using query
+	
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--split-by order_id \
+	-m 4 \
+	--query "select * from orders where \$CONDITIONS" \
+	--target-dir /user/nikunjpatel1989/sqoop_import;
+	
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--split-by order_id \
+	-m 4 \
+	--query "select * from orders where \$CONDITIONS" \
+	--where order_id>5 \
+	--target-dir /user/nikunjpatel1989/sqoop_import;
+	
+9) Import in hive
+
+	a) create the table in hive and then import
+	
+	create table orders(
+    order_id int,
+    order_date string,
+    order_cust_id int,
+    order_status string);
+	
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--table orders \
+	--hive-home /user/hive/warehouse \
+	--hive-import \
+	--hive-overwrite \
+	--hive-table sqoop_import.orders
+	-m 1;
+	
+
+	b) create table using import command iteslf
+	
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--table orders \
+	--hive-home /user/hive/warehouse \
+	--hive-import \
+	--hive-table sqoop_import.orders_sqoop \
+	--create-hive-table 
+	-m 1;
+	
+10) load into existing directory in hdfs`(incremental load)
+	
+	a) import sql table to hdfs location
+	
+	hadoop fs -mkdir /user/nikunjpatel1989/sqoop_import 
+
+	sqoop import-all-tables \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	-m 1  \
+	--warehouse-dir /user/nikunjpatel1989/sqoop_import;
+	
+	b) add few columns in the sql table 
+	
+	insert into orders values (18,'2013-11-09',5554,'Pending')
+	
+	c) append the same column to the hdfs location using append
+	
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--table orders \
+	--target-dir /user/nikunjpatel1989/sqoop_import/orders \
+	--append \
+	--where "order_id>15"
+	-m 1;
+	
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--table orders \
+	--target-dir /user/nikunjpatel1989/sqoop_import/orders \
+	--append \
+	--check-column "order_id" \
+	--incremental append \
+	--last-value 18 \
+	-m 1;
+
+11) Export command (from hdfs to mysql)
+
+	a) create sql table.
+	
+	create table orders_export as select * from orders where 1=2;
+	
+	sqoop export \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--table orders_export \
+	--export-dir /user/nikunjpatel1989/sqoop_import/orders;
+	
+	b) Merge data to exisiting sql table(primary key is mandatory or else duplicate will be inserted)
+	
+	hadoop fs -mkdir /user/nikunjpatel1989/exp
+	hadoop fs -put data.csv /user/nikunjpatel1989/exp
+	
+	sqoop export \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--table orders \
+	--export-dir /user/nikunjpatel1989/exp \
+	-m 1 \
+	--update-key order_id \
+	--update-mode allowinsert;
+
+12) fields-terminated-by , lines-terminated-by, enclosed-by
+
+	a) while importing into plain HDFS
+	
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--table orders \
+	--target-dir /user/nikunjpatel1989/sqoop_new \
+	--enclosed-by \" \
+	--fields-terminated-by \| \
+	--lines-terminated-by \: 
+	--null-string -1 \
+	--null-non-string -2 \
+	-m 1;
+	
+13) file formats
+
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--table orders \
+	--target-dir /user/nikunjpatel1989/sqoop_format \
+	--as-sequencefile;
+	
+	sqoop import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--table orders \
+	--target-dir /user/nikunjpatel1989/sqoop_avro \
+	--as-avrodatafile;	
+	
+	Note: if you want to create a hive table of avro file, 
+	store the metadata in hdfs(avsc file), and provide this location as part of create table command
+	this will be availabe in hive tutorials.
+	
+14) Sqoop Jobs
+
+	sqoop job --create sqoop_job \
+	-- import \
+	--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+	--username nikunjpatel1989 \
+	--password HZj4zKduxtwoKNm \
+	--table orders \
+	--target-dir /user/nikunjpatel1989/sqoop_job \
+	-m 1;
+	
+	sqoop job --list (will list the available job)
+	sqoop job --exec sqoop_job (will exec the job)
