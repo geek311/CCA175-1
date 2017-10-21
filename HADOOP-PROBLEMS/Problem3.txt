@@ -1,0 +1,98 @@
+1)	Import all tables from mysql database into hdfs as aero data files. 
+	use compression and the compression codec should be snappy. data warehouse directory should be retail_stage.db
+
+Solution:
+	
+sqoop import-all-tables \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--as-avrodatafile \
+--warehouse-dir /user/hive/warehouse/retail_stage.db \
+--compress \
+--compression-codec snappy \
+-m 1;
+
+2)	Create a metastore table that should point to the orders data imported by sqoop job above. Name the table orders_sqoop. 
+
+Solution:
+
+mkdir acro-test
+cd avro-test
+hadoop fs -get  /user/hive/warehouse/retail_stage.db/ordermaster/part-m-00000.avro
+avro-tools getschema part-m-00000.avro > orders.avsc
+hadoop fs -mkdir /user/nikunjpatel1989/schemas
+hadoop fs -mkdir /user/nikunjpatel1989/schemas/order
+hadoop fs -put orders.avsc /user/nikunjpatel1989/schemas/order
+ 
+create external table orders_sqoop
+STORED AS AVRO
+LOCATION '/user/hive/warehouse/retail_stage.db/ordermaster'
+TBLPROPERTIES ('avro.schema.url'='/user/nikunjpatel1989/schemas/order/orders.avsc');
+
+3)	Write query in hive that shows all orders belonging to a certain day. This day is when the most orders were placed. select data from orders_sqoop. 
+
+Solution:
+
+select * from orders_sqoop x where x.orderdate in (select z.orderdate from (select y.orderdate ,count(1) as totalorders from orders_sqoop y group by y.orderdate order by totalorders desc limit 1) as z);
+
+4)	Query table in impala that shows all orders belonging to a certain day. This day is when the most orders were placed. select data from order_sqoop. 
+
+Solution:
+
+impala-shell
+invalidate metadata;
+select * from orders_sqoop x where x.orderdate in (select z.orderdate from (select y.orderdate ,count(1) as totalorders from orders_sqoop y group by y.orderdate order by totalorders desc limit 1) as z);
+
+5)	Now create a table named retail.orders_avro in hive stored as avro, the table should have same table definition as order_sqoop. 
+	Additionally, this new table should be partitioned by the order month i.e -> year-order_month.(example: 2014-01)
+
+Solution:
+	
+create database retail_sqoop;
+use retail_sqoop;
+
+create table orders_avro(
+orderid int,
+orderdate date,
+ordercustid int,
+orderstatus string)
+partitioned by (order_month string)
+STORED AS AVRO;
+	
+6)	Load data into orders_avro table from orders_sqoop table.
+
+Solution:
+
+set hive.exec.dynamic.partition = true;
+set hive.exec.dynamic.partition.mode = nonstrict;
+set hive.exec.max.dynamic.partition.pernode=300;
+
+insert overwrite table orders_avro partition(order_month) select orderid,to_date(from_unixtime(cast(orderdate/1000 as int))),ordercustid,orderstatus,substr(to_date(from_unixtime(cast(orderdate/1000 as int))),1,7) as order_month from default.orders_sqoop;
+
+7)	Write query in hive that shows all orders belonging to a certain day. This day is when the most orders were placed. select data from orders_avro
+
+Solution:
+
+select * from  orders_avro x where x.orderdate in (select z.orderdate from (select y.orderdate,count(1) as totalorder from orders_avro y group by y.orderdate order by totalorder desc limit 1) as z);
+
+8)	Evolve the avro schema related to orders_sqoop table by adding more fields named (order_style String, order_zone Integer)
+
+Solution:
+
+hadoop fs -get /user/nikunjpatel1989/schemas/order/orders.avsc
+ vi orders.avsc
+  {
+    "name" : "orderstyle",
+    "type" : [ "null", "string" ],
+    "default" : null,
+    "columnName" : "orderstyle",
+    "sqlType" : "4"
+  }, {
+    "name" : "orderzone",
+    "type" : [ "null", "int" ],
+    "default" : null,
+    "columnName" : "orderzone",
+    "sqlType" : "12"
+  }
+   hadoop fs -put -f orders.avsc /user/nikunjpatel198

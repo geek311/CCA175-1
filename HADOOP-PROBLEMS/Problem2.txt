@@ -1,0 +1,61 @@
+1)	Using sqoop copy data available in mysql products table to folder /user/nikunjpatel1989/products on hdfs as text file. 
+	columns should be delimited by pipe '|'
+	
+Solution:
+
+hadoop fs -mkdir /user/nikunjpatel1989/products
+	
+sqoop import \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--table products \
+--target-dir /user/nikunjpatel1989/products \
+--fields-terminated-by '|';
+	
+2)	Move all the files from /user/nikunjpatel1989/products folder to /user/nikunjpatel1989/problem2/products folder
+
+Solution:
+
+hadoop fs -mkdir /user/nikunjpatel1989/problem2
+hadoop fs -cp /user/nikunjpatel1989/products /user/nikunjpatel1989/problem2/
+	
+3)	Change permissions of all the files under /user/nikunjpatel1989/problem2/products such that owner has read,write and execute permissions, 
+	group has read and write permissions whereas others have just read and execute permissions
+
+Solution:
+	
+-rw-r--r-- (three character wise : Owner, Group and Others )
+4 - Read, 2- Write, 1 - Execute
+hadoop fs -chmod 765 /user/nikunjpatel1989/problem2/products/*
+Output Dir: -rwxrw-r-x
+	
+4)	Read data in /user/nikunjpatel1989/problem2/products and do the following operations using 
+	a) dataframes api b) spark sql. Sort the resultant dataset by category id
+	filter such that your RDD\DF has products whose price is lesser than 100 USD
+	on the filtered data set find out the highest value in the product_price column under each category
+	on the filtered data set also find out total products under each category
+	on the filtered data set also find out the average price of the product under each category
+	on the filtered data set also find out the minimum price of the product under each category
+	
+Solution:
+	
+var products = sc.textFile("/user/nikunjpatel1989/problem2/products/").map(x=> {var d = x.split('|'); (d(0).toInt,d(1).toInt,d(2),d(3),d(4).toFloat,d(5))});
+case class Products(productID:Integer,productCategory:Integer,productName:String,productDesc:String,productPrice:Float,productImage:String)
+var productDF = products.map(x=> Products(x._1,x._2,x._3,x._4,x._5,x._6)).toDF()
+#using dataframes	
+var dataFrameResult = productDF.filter("productPrice<100").groupBy(col("productCategory")).agg(max(col("productPrice")).alias("max_price"),countDistinct(col("productID")).alias("total_products"),round(avg(col("productPrice")),2).alias("avg_price"),min(col("productPrice")).alias("min_price")).orderBy(col("productCategory"))
+#using sparksql
+productDF.registerTempTable("products_df");
+var sqlResult = sqlContext.sql("select productCategory, max(productPrice) as max_price, count(distinct productID) as total_products, cast(avg(productPrice) as decimal(10,2)) as avg_price,min(productPrice) as min_price from products_df where productPrice < 100 group by productCategory order by productCategory");
+
+5)	store the result in avro file using snappy compression under these folders respectively
+	/user/nikunjpatel1989/problem2/products/result-df
+	/user/nikunjpatel1989/problem2/products/result-sql
+
+Solution:
+
+import com.databricks.spark.avro._
+sqlContext.setConf("spark.sql.avro.compression.codec","snappy")
+dataFrameResult.write.avro("/user/nikunjpatel1989/problem2/products/result-df");
+sqlResult.write.avro("/user/nikunjpatel1989/problem2/products/result-sql"); 

@@ -1,0 +1,168 @@
+1)	Using sqoop, import products_replica table from MYSQL into hdfs such that fields are separated by a '|' and lines are separated by '\n'. 
+	Null values are represented as -1 for numbers and "NOT-AVAILABLE" for strings. Only records with product id greater than or equal to 1 and 
+	less than or equal to 1000 should be imported and use 3 mappers for importing. 
+	The destination file should be stored as a text file to directory  /user/nikunjpatel1989/problem5/products-text. 
+	
+Solution:
+
+sqoop import \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--table products_replica \
+--fields-terminated-by '|' \
+--lines-terminated-by '\n' \
+--null-non-string -1 \
+--null-string "NOT-AVAILABLE" \
+--where "product_id between 1 and 1000" \
+-m 3 \
+--target-dir /user/nikunjpatel1989/problem5/products-text \
+--outdir /home/nikunjpatel1989/sqoop1;
+
+2)	Using sqoop, import products_replica table from MYSQL into hdfs such that fields are separated by a '*' and lines are separated by '\n'. 
+	Null values are represented as -1000 for numbers and "NA" for strings. Only records with product id less than or equal to 111 should be imported 
+	and use 2 mappers for importing. The destination file should be stored as a text file to directory  /user/nikunjpatel1989/problem5/products-text-part1. 
+
+Solution:
+	
+sqoop import \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--table products_replica \
+--fields-terminated-by '*' \
+--lines-terminated-by '\n' \
+--null-non-string -1000 \
+--null-string "NA" \
+--where "product_id <=111" \
+-m 2 \
+--target-dir /user/nikunjpatel1989/problem5/products-text-part1 \
+--outdir /home/nikunjpatel1989/sqoop2;
+	
+3) 	Using sqoop, import products_replica table from MYSQL into hdfs such that fields are separated by a '*' and lines are separated by '\n'. 
+	Null values are represented as -1000 for numbers and "NA" for strings. Only records with product id greater than 111 should be 
+	imported and use 5 mappers for importing. The destination file should be stored as a text file to directory  /user/nikunjpatel1989/problem5/products-text-part2.
+	
+Solution:
+
+sqoop import \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--table products_replica \
+--fields-terminated-by '*' \
+--lines-terminated-by '\n' \
+--null-non-string -1000 \
+--null-string "NA" \
+--where "product_id > 111" \
+-m 5 \
+--target-dir /user/nikunjpatel1989/problem5/products-text-part2 \
+--outdir /home/nikunjpatel1989/sqoop3;
+	
+4)	Using sqoop merge data available in /user/nikunjpatel1989/problem5/products-text-part1 and /user/nikunjpatel1989/problem5/products-text-part2 to produce a 
+	new set of files in /user/nikunjpatel1989/problem5/products-text-both-parts
+
+Solution:
+	
+Note: jar-file will be from the last sqooop job, class name will be from the outdir of last sqoop job
+ 
+sqoop merge \
+--class-name products_replica \
+--jar-file /tmp/sqoop-nikunjpatel1989/compile/1a877bd608d1ec6e1f199f99746e9cbc/products_replica.jar \
+--new-data /user/nikunjpatel1989/problem5/products-text-part2 \
+--onto /user/nikunjpatel1989/problem5/products-text-part1 \
+--target-dir /user/nikunjpatel1989/problem5/products-text-both-parts \
+--merge-key product_id;
+
+5)	Using sqoop do the following. Read the entire steps before you create the sqoop job.
+	create a sqoop job Import Products_replica table as text file to directory /user/cloudera/problem5/products-incremental. Import all the records.
+	insert three more records to Products_replica from mysql
+	run the sqoop job again so that only newly added records can be pulled from mysql
+	insert 2 more records to Products_replica from mysql
+	run the sqoop job again so that only newly added records can be pulled from mysql
+	Validate to make sure the records have not be duplicated in HDFS
+
+Solution:
+	
+Note: remember to insert space before insert
+
+sqoop job \
+--create myjob \
+-- import \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--table products_replica \
+--target-dir /user/nikunjpatel1989/problem5/products-incremental \
+--check-column product_id \
+--incremental append \
+--last-value 0;
+
+sqoop job --exec myjob
+
+mysql> insert into products_replica values (1346,2,'something 1','something 2',300.00,'not avaialble',3,'STRONG');
+mysql> insert into products_replica values (1347,5,'something 787','something 2',356.00,'not avaialble',3,'STRONG');
+
+sqoop job --exec myjob
+
+6)	Using sqoop do the following. Read the entire steps before you create the sqoop job.
+	create a hive table in database named problem5 using below command 
+	create table products_hive  (product_id int, product_category_id int, product_name string, product_description string, product_price float, product_imaage string,product_grade int,  product_sentiment string);
+	create a sqoop job Import Products_replica table as hive table to database named problem5. name the table as products_hive. 
+	insert three more records to Products_replica from mysql
+	run the sqoop job again so that only newly added records can be pulled from mysql
+	insert 2 more records to Products_replica from mysql
+	run the sqoop job again so that only newly added records can be pulled from mysql
+	Validate to make sure the records have not been duplicated in Hive table
+
+Solution:
+	
+sqoop job \
+--create hive_sqoop_job \
+-- import \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--table products_replica \
+--check-column product_id \
+--incremental append \
+--last-value 0 \
+--hive-import \
+--hive-table products_hive \
+--hive-database problem5;
+
+On Hive window:
+create database problem5;
+use problem5;
+create table products_hive  (product_id int, product_category_id int, product_name string, product_description string, product_price float, product_imaage string,product_grade int,  product_sentiment string);
+
+On Terminal window
+sqoop job --exec hive_sqoop_job
+
+On MySQL window
+
+insert into products_replica values (1378,4,'something 1376','something 2',10.00,'not avaialble',null,'NOT APPLICABLE');
+insert into products_replica values (1379,4,'something 1376','something 2',10.00,'not avaialble',null,'NOT APPLICABLE');
+
+On Terminal Window
+sqoop job --exec hive_sqoop_job
+
+On Hive Window
+select * from products_hive
+
+7)	Merge data to exisiting sql table(primary key is mandatory or else duplicate will be inserted)
+
+Solution:
+
+hadoop fs -mkdir /user/nikunjpatel1989/exp
+hadoop fs -put data.csv /user/nikunjpatel1989/exp
+	
+sqoop export \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--table orders \
+--export-dir /user/nikunjpatel1989/exp \
+-m 1 \
+--update-key order_id \
+--update-mode allowinsert;

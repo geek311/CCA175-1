@@ -1,0 +1,100 @@
+1)	Using sqoop, import ordermaster table into hdfs to folders /user/nikunjpatel1989/problem1/orders. 
+	File should be loaded as Avro File and use snappy compression.
+	
+Solution:
+	
+sqoop import \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--table ordermaster \
+--compress \
+--compression-codec org.apache.hadoop.io.compress.SnappyCodec \
+--target-dir /user/nikunjpatel1989/problem1/orders \
+--as-avrodatafile;
+
+2)	Using sqoop, import ordersubmaster table into hdfs to folders /user/nikunjpatel1989/problem1/order-items. 
+	Files should be loaded as avro file and use snappy compression.
+	
+Solution:
+	
+sqoop import \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--table ordersubmaster \
+--compress \
+--compression-codec org.apache.hadoop.io.compress.SnappyCodec \
+--target-dir /user/nikunjpatel1989/problem1/order-items \
+--as-avrodatafile;
+	
+3)	Using Spark, load data at /user/nikunjpatel1989/problem1/orders and /user/nikunjpatel1989/problem1/order-items items as dataframes. 
+
+Solution:
+
+import com.databricks.spark.avro._
+var orderDF = sqlContext.read.avro("/user/nikunjpatel1989/problem1/orders")
+var orderItemsDF = sqlContext.read.avro("/user/nikunjpatel1989/problem1/order-items")
+
+4)	Expected Intermediate Result: Order_Date , Order_status, total_orders, total_amount. 
+	In plain english, please find total orders and total amount per status per day. 
+	The result should be sorted by order date in descending, order status in ascending and total amount in descending and total orders in ascending.
+	a) Just by using Data Frames API - here order_date should be YYYY-MM-DD format
+	b) Using Spark SQL  - here order_date should be YYYY-MM-DD format
+	
+Solution:
+	
+var orderJoinOrderItem = orderDF.join(orderItemsDF,orderDF("orderid")===orderItemsDF("productorderid"))
+a)	var dataFrame = orderJoinOrderItem
+					.groupBy(to_date(from_unixtime(col("orderdate")/1000)).alias("Date"),col("orderstatus"))
+					.agg(round(sum(col("subtotal")),2).alias("Total"),countDistinct(col("orderid")).alias("TotalOrders"))
+					.orderBy(col("Date").desc,col("orderstatus"),col("Total").desc,col("TotalOrders"))
+b)	orderJoinOrderItem.registerTempTable("orderanditems");
+	var sqlResult = sqlContext.sql("select to_date(from_unixtime(orderdate/1000)) as orderdate,orderstatus,
+									cast(sum(subtotal) as decimal(10,2)) as Total,count(distinct orderid) as TotalOrders 
+									from orderanditems group by orderdate,orderstatus order by orderdate desc,orderstatus,Total desc, TotalOrders")
+	
+5)	Store the result as parquet file into hdfs using gzip compression under folder
+	/user/nikunjpatel1989/problem1/result4a-gzip
+	/user/nikunjpatel1989/problem1/result4b-gzip
+	/user/nikunjpatel1989/problem1/result4c-gzip
+	
+Solution:
+
+sqlContext.setConf("spark.sql.parquet.compression.codec","gzip")
+dataFrame.write.parquet("/user/nikunjpatel1989/problem1/result4a-gzip")
+sqlResult.write.parquet("/user/nikunjpatel1989/problem1/result4b-gzip")
+
+6)	Store the result as parquet file into hdfs using snappy compression under folder
+	/user/nikunjpatel1989/problem1/result4a-snappy
+	/user/nikunjpatel1989/problem1/result4b-snappy
+	/user/nikunjpatel1989/problem1/result4c-snappy
+
+Solution:
+	
+sqlContext.setConf("spark.sql.parquet.compression.codec","snappy")
+dataFrame.write.parquet("/user/nikunjpatel1989/problem1/result4a-snappy")
+sqlResult.write.parquet("/user/nikunjpatel1989/problem1/result4b-snappy")
+
+7)	Store the result as CSV file into hdfs using No compression under folder
+	/user/nikunjpatel1989/problem1/result4a-csv
+	/user/nikunjpatel1989/problem1/result4b-csv
+	/user/nikunjpatel1989/problem1/result4c-csv
+
+Solution:
+	
+dataFrame.map(x=> x(0) + "," + x(1) + "," + x(2) + "," + x(3)).saveAsTextFile("/user/nikunjpatel1989/problem1/result4a-csv")
+sqlResult.map(x=> x(0) + "," + x(1) + "," + x(2) + "," + x(3)).saveAsTextFile("/user/nikunjpatel1989/problem1/result4b-csv")
+	
+8)	create a mysql table named result and load data from /user/nikunjpatel1989/problem1/result4a-csv to mysql table named result 
+
+Solution:
+
+create table result(OrderDate varchar(255),OrderStatus varchar(255),OrderAmount float,TotalOrders int);
+
+sqoop export \
+--connect "jdbc:mysql://101.53.130.146/nikunjpatel1989" \
+--username nikunjpatel1989 \
+--password HZj4zKduxtwoKNm \
+--table result \
+--export-dir /user/nikunjpatel1989/problem1/result4a-csv;
