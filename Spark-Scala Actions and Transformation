@@ -1,0 +1,136 @@
+Spark Transformation
+
+var list = Array(1,2,3,4,5,1,2,3)
+var sourceRDD = sc.parallelize(list)
+
+A) map
+
+var mapRDD = sourceRDD.map(x=>x+1)
+var mapResult = mapRDD.collect()
+O/P: 2, 3, 4, 5, 6, 2, 3, 4
+
+var mapRDD = sourceRDD.map(x=>(x,1))
+O/P: (1,1), (2,1), (3,1), (4,1), (5,1), (1,1), (2,1), (3,1)
+
+B) filter
+
+var filterRDD = sourceRDD.filter(x=>x%2==0)
+var filterResult = filterRDD.collect();
+O/P: 2, 4, 2
+
+C) distinct
+
+var distinctRDD = sourceRDD.distinct()
+var distinctResult = distinctRDD.collect()
+O/P: 4, 2, 1, 3, 5
+
+D) union and intersection
+
+var list1 = Array(1,2,3)
+var list2 = Array(1,2,3,4)
+var sourceRDD1 = sc.parallelize(list1)
+var sourceRDD2 = sc.parallelize(list2)
+var unionRDD = sourceRDD1.union(sourceRDD2)
+var unionRDDResult = unionRDD.collect()
+O/P: 1, 2, 3, 1, 2, 3, 4
+
+var intersectRDD = sourceRDD1.intersection(sourceRDD2)
+var intersectRDDResult = intersectRDD.collect()
+
+E) Map and Flat map
+
+var list = Array("Nikunj Patel","Raj Patel","Final Value")
+var sourceRDD = sc.parallelize(list)
+
+var mapRDD = sourceRDD.map(x=>x.split(' '))
+var mapResult= mapRDD.collect()
+O/P: Array(Nikunj, Patel), Array(Raj, Patel), Array(Final, Value)
+O/P: mapRDD.count() : 3
+
+var mapRDD = sourceRDD.flatMap(x=>x.split(' '))
+var mapResult = mapResult.collect()
+O/P:Array(Nikunj, Patel, Raj, Patel, Final, Value)
+O/P: mapRDD.count() : 6
+
+Spark Actions
+
+A) reduce
+
+var total = sourceRDD.reduce((x,y)=>x+y)
+O/P: 21
+
+B) count
+
+var count = sourceRDD.count()
+O/P: 8
+
+C) collect
+
+var result = sourceRDD.collect()
+O/P: 1, 2, 3, 4, 5, 1, 2, 3
+
+D) first 
+
+var result = sourceRDD.first()
+O/P: 1
+
+E) take
+
+var result = sourceRDD.take(5)
+O/P: 1, 2, 3, 4, 5
+
+F) takeordered
+
+var ascending = sourceRDD.takeOrdered(5)
+O/P: 1, 1, 2, 2, 3
+
+Key Value RDD’s
+
+A) reducebykey
+
+var keyValList = Array((1,2),(2,3),(1,2),(4,5))
+var sourceRDD = sc.parallelize(keyValList)
+var mapRDD = sourceRDD.reduceByKey((x,y)=>x+y)
+var mapResult = mapRDD.collect()
+O/P: (4,5), (2,3), (1,4)
+
+B) sortbykey
+
+var mapRDD = sourceRDD.sortByKey()
+var mapResult = mapRDD.collect()
+O/P: (1,2), (1,2), (2,3), (4,5)
+
+E) join
+
+var list1 = Array((1,1),(2,2),(1,1))
+var list2 = Array((1,7),(2,8),(1,9))
+var sourceRDD = sc.parallelize(list1)
+var sourceRDD1 = sc.parallelize(list1)
+var sourceRDD2 = sc.parallelize(list2)
+var join = sourceRDD1.join(sourceRDD2)
+O/P: (2,(2,8)), (1,(1,7)), (1,(1,9)), (1,(1,7)), (1,(1,9))
+
+Word count of text file
+
+var mapRDD = sc.textFile("/user/nikunjpatel1989/wc/UN.txt").flatMap(x=>x.split(' '))
+var transRDD = mapRDD.map(x=>(x.toLowerCase(),1))
+var keyRDD = transRDD.reduceByKey((x,y)=>x+y)
+var sortRDD = keyRDD.map(_.swap).sortByKey().map(_.swap)
+sortRDD.saveAsTextFile("/user/nikunjpatel1989/WordCount1")
+
+sc.textFile("/user/nikunjpatel1989/wc/UN.txt")
+.flatMap(x=>x.split(' '))
+.map(x=>(x,1))
+.reduceByKey((x,y)=>x+y)
+.map(_.swap)
+.sortByKey()
+.map(_.swap)
+.saveAsTextFile("/user/nikunjpatel1989/WordCount1")
+
+Joining Datasets together using spark
+
+var omRDD = sc.textFile("/user/nikunjpatel1989/ordermaster")
+var osmRDD = sc.textFile("/user/nikunjpatel1989/ordersubmaster")
+var omParsedRDD = omRDD.map(x=>(x.split(',')(0),x))
+var osmParsedRDD = osmRDD.map(x=>(x.split(',')(1),x))
+var join = omParsedRDD.join(osmParsedRDD)
