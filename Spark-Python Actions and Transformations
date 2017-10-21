@@ -1,0 +1,286 @@
+1) load data from hdfs and store back to hdfs using spark
+
+a) Pyspark - Submitting pyspark applications
+
+1) Create a sample .py file in local mode
+a) vi spsubmitex.py
+b) press i (for insert)
+c) write the code
+d) once done, press excape and :wq 
+
+2) run the command, spark-submit spsubmitex.py
+
+Note: To launch SQLContext, from pyspark.sql import SQLContext
+To launch HiveContext, from pyspark.sql import HiveContext
+
+Python Shell
+
+1) if sqlContext and sparkcontext are already defined
+
+from pyspark import SparkContext, SparkConf
+from pyspark.sql import HiveContext			
+depts = sqlContext.sql("select * from sparkpractice.orders")			
+de = depts.collect()
+print(de)
+
+from pyspark import SparkContext, SparkConf
+from pyspark.sql import SQLContext
+
+2) through .py file using spark-submit
+
+from pyspark import SparkContext, SparkConf
+from pyspark.sql import HiveContext
+sc = SparkContext()
+sqlContext = HiveContext(sc)
+depts = sqlContext.sql("select * from sparkpractice.userdetails")
+de = depts.collect()
+print(de)
+
+
+b) Reading and saving Text File
+from pyspark import SparkContext, SparkConf
+sc = SparkContext()
+dataRDD = sc.textFile("/user/nikunjpatel1989/UserDetails.txt")
+dataRDD.saveAsTextFile("/user/nikunjpatel1989/useroo")
+
+c) Reading and saving Sequence file (works on key value pair)
+from pyspark import SparkContext, SparkConf
+sc = SparkContext()
+dataRDD = sc.textFile("/user/nikunjpatel1989/UserDetails.txt")
+#saveassequencefile
+dataRDD.map(lambda x: (None,x)).saveAsSequenceFile("/user/nikunjpatel1989/Userss")
+#readingsequencefile
+data = sc.sequenceFile("/user/nikunjpatel1989/User")
+
+d) Reading and saving Hive
+from pyspark import SparkContext, SparkConf
+from pyspark.sql import HiveContext
+sc = SparkContext()
+sqlContext = HiveContext(sc)
+data = sqlContext.sql("select * from user")
+for i in data.collect():
+print("Nikunj - > ",i)
+
+2) Spark Transformation
+
+a) map
+mapRDD = sourceRDD.map(lambda x:x+1)
+mapResult = mapRDD.collect()
+print("Map-> ", mapResult) #('Map-> ', [2, 3, 5, 2, 7, 3, 8])
+
+mapRDD1 = sourceRDD.map(lambda x:(x,1))
+mapResult1 = mapRDD1.collect()
+print("Map1-> ", mapResult1) #('Map1-> ', [(1, 1), (2, 1), (4, 1), (1, 1), (6, 1), (2, 1), (7, 1)])
+
+b) filter
+filterRDD = sourceRDD.filter(lambda x:x%2==0)
+filterResult = filterRDD.collect()
+print("Filter-> ", filterResult) #('Filter-> ', [2, 4, 6, 2])
+
+c) distinct
+distinctRDD = sourceRDD.distinct()
+distinctResult = distinctRDD.collect()
+print("Distinct-> ", distinctResult) #('Distinct-> ', [4, 1, 2, 6, 7])
+
+d) union and intersection
+rdd1 = sc.parallelize([1,2,6,7,8],4)
+rdd2 = sc.parallelize([4,1,2,7,0,9],4)
+
+unionRDD = rdd1.union(rdd2)
+unionResult = unionRDD.collect()
+print("Union-> ", unionResult) #('Union-> ', [1, 2, 6, 7, 8, 4, 1, 2, 7, 0, 9])
+
+intersectionRDD = rdd1.intersection(rdd2)
+intersectionResult = intersectionRDD.collect()
+print("Intersection-> ", intersectionResult) #('Intersection-> ', [1, 2, 7])
+
+3) Spark Map and Spark FlatMap
+
+#map
+mapRDD = sourceRDD.map(lambda line:line.split(" "))
+mapResult = mapRDD.collect()
+print("Map-> ", mapResult) #('Map-> ', [['Nikunj', 'Patel'], ['Patel', 'Nikunj'], ['Raj', 'Shah'], ['ABC', 'Patel']])
+print("MapCount-> ",mapRDD.count()) #('MapCount-> ', 4)
+
+#flatMap
+flatMapRDD = sourceRDD.flatMap(lambda line:line.split(" "))
+flatMapResult = flatMapRDD.collect()
+print("FlatMap-> ", flatMapResult) #('FlatMap-> ', ['Nikunj', 'Patel', 'Patel', 'Nikunj', 'Raj', 'Shah', 'ABC', 'Patel'])
+print("FlatMapCount-> ",flatMapRDD.count()) #('FlatMapCount-> ', 8)
+
+4) Spark Actions
+
+sourceRDD = sc.parallelize([1,2,3,4,5,1,2,3,4,5],4)
+
+#reduce
+total = sourceRDD.reduce(lambda x,y:x+y)
+print("Total-> ",total) #('Total-> ', 30)
+
+#count
+count = sourceRDD.count()
+print("Count-> ",count) #('Count-> ', 10)
+
+#collect
+collectResult = sourceRDD.collect()
+print("Collect-> ",collectResult) #('Collect-> ', [1, 2, 3, 4, 5, 1, 2, 3, 4, 5])
+
+#first
+firstElement = sourceRDD.first()
+print("First-> ",firstElement) #('First-> ', 1)
+
+#take
+takeResult = sourceRDD.take(5)
+print("Take-> ",takeResult) #('Take-> ', [1, 2, 3, 4, 5])
+
+#takeordered
+ascending = sourceRDD.takeOrdered(5)
+print("TakeOrderedAsc -> ",ascending) #('TakeOrderedAsc -> ', [1, 1, 2, 2, 3])
+descending = sourceRDD.takeOrdered(5,lambda x:-1*x)
+print("TakeOrderedDesc -> ",descending) #('TakeOrderedDesc -> ', [5, 5, 4, 4, 3])
+
+5) Key Value RDD's
+
+sourceRDD = sc.parallelize([(3,4),(1,3),(6,1),(2,4),(4,2),(3,4)],4)
+
+#reducebykey
+reduceByKeyRDD = sourceRDD.reduceByKey(lambda x,y:x+y)
+reduceByKeyResult = reduceByKeyRDD.collect()
+print("ReduceByKey-> ",reduceByKeyResult) #('ReduceByKey-> ', [(4, 2), (1, 3), (2, 4), (6, 1), (3, 8)])
+
+#sortbykey
+sortByKeyRDD = sourceRDD.sortByKey()
+sortByKeyResult= sortByKeyRDD.collect()
+print("SortByKey-> ",sortByKeyResult) #('SortByKey-> ', [(1, 3), (2, 4), (3, 4), (3, 4), (4, 2), (6, 1)])
+
+#groupbykey
+groupByKeyRDD = sourceRDD.groupByKey()
+groupByKeyResult = groupByKeyRDD.map(lambda (k,v):(k,sum(v)))
+print("GroupByKeyResult-> ",groupByKeyResult.collect()) #('GroupByKeyResult-> ', [(4, 2), (1, 3), (2, 4), (6, 1), (3, 8)])
+
+#join (join function, joins two RDD’s on the key’s.)
+sourceRDD1 = sc.parallelize([(3,4),(1,3),(6,1),(2,4),(4,2),(3,4)],4)
+sourceRDD2 = sc.parallelize([(3,4),(1,3),(6,1),(2,4),(4,2),(3,4)],4)
+
+joinedRDD = sourceRDD1.join(sourceRDD2)
+joinedRDDResult = joinedRDD.collect()
+print("joinedRDDResult-> ",joinedRDDResult) #('joinedRDDResult-> ', [(1, (3, 3)), (2, (4, 4)), (3, (4, 4)), (3, (4, 4)), (3, (4, 4)), (3, (4, 4)), (4, (2, 2)), (6, (1, 1))])
+
+6) Word Count of Text File
+
+from pyspark import SparkContext, SparkConf
+sc = SparkContext()
+fileRDD = sc.textFile("/user/nikunjpatel1989/UN.txt")
+wordsRDD = fileRDD.flatMap(lambda x:x.split(" "))
+wordsKeyValueRDD = wordsRDD.map(lambda k:(k.lower(),1))
+wordCountRDD = wordsKeyValueRDD.reduceByKey(lambda a,b:a+b)
+wordCountRDDFlip = wordCountRDD.map(lambda (k,v):(v,k))
+wordCountRDDDesc = wordCountRDDFlip.sortByKey(False)
+wordCountRDDDesc = wordCountRDDDesc.map(lambda (k,v):(v,k))
+wordCountRDDDesc.saveAsTextFile("/user/nikunjpatel1989/WordCount1")	
+
+from pyspark import SparkContext, SparkConf
+sc = SparkContext()
+textRDD = sc.textFile("/user/nikunjpatel1989/UN.txt")
+resultRDD = textRDD.flatMap(lambda x:x.split(" "))
+.map(lambda x:(x.lower(),1))
+.reduceByKey(lambda x,y:x+y)
+.map(lambda (k,v):(v,k))
+.sortByKey(False)
+.map(lambda (k,v):(v,k))
+resultRDD.saveAsTextFile("/user/nikunjpatel1989/wc")
+
+7)   Joining Datasets together using spark
+
+a) get order_item_subtotal and no of orders on per day using python.
+
+orderRDD = sc.textFile("/user/nikunjpatel1989/orders.txt")
+orderItemRDD = sc.textFile("/user/nikunjpatel1989/order_items.txt")
+orderParsedRDD = orderRDD.map(lambda o:(int(o.split(",")[0]),o))
+orderItemsParsedRDD = orderItemRDD.map(lambda o:(int(o.split(",")[1]),o))
+ordersJoinOrderItems = orderItemsParsedRDD.join(orderParsedRDD)
+revenuePerOrderPerDay = ordersJoinOrderItems.map(lambda t: (t[1][1].split(",")[1],int(t[1][0].split(",")[4])))
+totalRevenuePerDay = revenuePerOrderPerDay.reduceByKey(lambda x,y:x+y)
+ordersPerDay = ordersJoinOrderItems.map(lambda rec: (rec[1][1].split(",")[1] + "," + str(rec[0]))).distinct()
+orderPerDayParsedRDD = ordersPerDay.map(lambda rec: (rec.split(",")[0],1))
+totalOrdersPerDay = orderPerDayParsedRDD.reduceByKey(lambda x,y:x+y)	
+finalJoinRDD = totalOrdersPerDay.join(totalRevenuePerDay)
+
+b) get order_item_subtotal and no of orders on per day using hive.
+
+sqlContext.sql("set spark.sql.shuffle.partitions=10")#for faster processing
+from pyspark import SparkContext, SparkConf
+from pyspark.sql import HiveContext
+joinRDD = sqlContext.sql("select o.order_date, sum(oi.subtotal), count(distinct o.order_id) \
+... from sparkpractice.orders o join sparkpractice.order_items oi on o.order_id = oi.order_id \
+... group by o.order_date order by o.order_date")
+
+c) order_item_subtotal and no of orders on per day using SQLContext.
+
+from pyspark.sql import SQLContext, Row
+from pyspark import SparkContext, SparkConf
+sqlContext.sql("set spark.sql.shuffle.partitions=10")
+orderRDD = sc.textFile("/user/nikunjpatel1989/orders.txt")
+orderMap = orderRDD.map(lambda o:o.split(","))
+orders = orderMap.map(lambda o:Row(order_id=int(o[0]),order_dat=o[1], \
+... order_customer_id=int(o[2]), order_status=o[3]))
+ordersSchema = sqlContext.inferSchema(orders)
+ordersSchema.registerTempTable("orders")
+
+orderItemRDD = sc.textFile("/user/nikunjpatel1989/order_items.txt")
+orderItemMap = orderItemRDD.map(lambda oi:oi.split(","))
+orderItems = orderItemMap.map(lambda oi: Row(order_item_id=int(oi[0]), \
+... order_item_order_id=int(oi[1]), product_id=int(oi[2]), quantity=int(oi[3]), \
+... subtotal=int(oi[4]), price=int(oi[5])))
+orderItemsSchema = sqlContext.inferSchema(orderItems)
+orderItemsSchema.registerTempTable("order_items")
+
+joinAggData = sqlContext.sql("select o.order_date, sum(oi.subtotal), count(distinct o.order_id) \
+... from sparkpractice.orders o join sparkpractice.order_items oi on o.order_id = oi.order_id \
+... group by o.order_date order by o.order_date")
+
+d) how to get max,min from a RDD
+from pyspark import SparkContext, SparkConf
+orderRDD = sc.textFile("/user/nikunjpatel1989/orders.txt")
+ordersMap = orderRDD.map(lambda rec: rec)
+ordersMap.reduce(lambda rec1,rec2: rec1 if(int(rec1.split(",")[0]) >= int(rec2.split(",")[0])) else rec2)
+#u'15,2013-11-09,1278,Complete'
+
+e) compute average from total
+orderItemRDD = sc.textFile("/user/nikunjpatel1989/order_items.txt")
+totalRevenue = orderItemRDD.map(lambda l:int(l.split(",")[4])).reduce(lambda a,b:a+b)
+totalOrders = orderItemRDD.map(lambda x:x.split(",")[1]).distinct().count()
+avg = totalRevenue/totalOrders
+
+f)Aggregating data by key
+
+get count by order status
+#using countByKey
+orderRDD = sc.textFile("/user/nikunjpatel1989/orders.txt")
+ordersMap = orderRDD.map(lambda rec: (rec.split(",")[3],0))
+ordersMap.countByKey() #{u'Process': 3, u'Pending': 5, u'Closed': 5, u'Complete': 2}
+
+#using groupByKey
+ordersMap = orderRDD.map(lambda rec: (rec.split(",")[3],1)).groupByKey().map(lambda l:(l[0],sum(l[1])))
+
+g) Total revenue per day
+orderRDD = sc.textFile("/user/nikunjpatel1989/orders.txt")
+orderItemRDD = sc.textFile("/user/nikunjpatel1989/order_items.txt")
+orderParsedRDD = orderRDD.map(lambda o:(int(o.split(",")[0]),o))
+orderItemsParsedRDD = orderItemRDD.map(lambda o:(int(o.split(",")[1]),o))
+ordersJoinOrderItems = orderItemsParsedRDD.join(orderParsedRDD)
+ordersJoinOrder = ordersJoinOrderItems.map(lambda x:(x[1][1].split(",")[1],int(x[1][0].split(",")[4]))
+reduceval = ordersJoinOrder.reduceByKey(lambda x,y:x+y)
+
+h) Filter
+case 1: get list of completed orders
+op = orderRDD.filter(lambda x:x.split(",")[3]=="Complete")
+case 2: search particular string
+orderRDD.filter(lambda line: "Pending" in line.split(",")[3])
+case 3: use of greater than condition
+op = orderRDD.filter(lambda x:int(x.split(",")[0])>100)
+case 4: use of or conation
+op = orderRDD.filter(lambda x:int(x.split(",")[0])>100 or "Pending" in x.split(",")[3])
+case 5: check if there are any Closed order with amount greater than 1000
+orderRDD = sc.textFile("/user/nikunjpatel1989/orders.txt")
+orderItemRDD = sc.textFile("/user/nikunjpatel1989/order_items.txt")
+orderItemParsedRDD = orderRDD.filter(lambda x:"Closed" in x.split(",")[3]).map(lambda x:(int(x.split(",")[0]),x))
